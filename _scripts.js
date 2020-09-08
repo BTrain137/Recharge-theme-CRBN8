@@ -299,6 +299,9 @@ ReCharge.Endpoints = {
     // One-time endpoints
     cancel_onetime_product: function(id) {
         return this.base + 'onetimes/' + id + '/cancel?token=' + window.customerToken;
+    },
+    bulk_update_subscription_ur: function(id) {
+      return this.base + 'addresses/' + id + '/subscriptions-bulk-update';
     }
 };
 
@@ -366,6 +369,7 @@ ReCharge.Actions = {
             type: 'post',
             url: url,
             dataType: 'json',
+            contentType: 'application/json',
             data: data
         }).done(function(response) {
             // Successful request made
@@ -625,6 +629,9 @@ ReCharge.Subscription = {
         if (typeof(data) === 'undefined') { data = {}; }
         return ReCharge.Actions.put('retention_strategy_url', { id: id, strategy: strategy }, data);
     },
+    bulk_update: function(id, data) {
+      return ReCharge.Actions.put('bulk_update_subscription_url', id, data);
+    },
 };
 
 ReCharge.Discount = {
@@ -752,6 +759,25 @@ ReCharge.onLoad = function($) {
 
             delete window.locked;
         });
+    });
+
+    $(document).on("submit", 'form[id^="bundleUpdate_NextChargeDate"]', function (evt) {
+      evt.preventDefault();
+      var $form = $(this);
+      var address_id = $form.find('[name="address-id"]').first().val();
+      var date = $form.find('[name="date"]').first().val();
+      var subscription_ids = $form .find('[name="subscription-ids"]').first().val().split(",");
+      var data = [];
+      for (var i = 0; i < subscription_ids.length; i++) {
+        data.push({
+          id: subscription_ids[i],
+          next_charge_scheduled_at: date,
+        });
+      }
+      ReCharge.Subscription.bulk_update(
+        address_id,
+        JSON.stringify({ subscriptions: data })
+      );
     });
 };
 
