@@ -1,0 +1,200 @@
+<style>{% include '_styles.css' %}</style>
+
+<style>
+  .te-container {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    padding-left: 30px;
+    width: 600px;
+    margin: 0 auto;
+  }
+</style>
+
+
+<div class="te-container">
+
+  <h2 style="text-transform: uppercase; text-align: initial;" id="confirm-changes"> Confirm your changes </h2>
+
+  <div>
+    <div id="greeting" class="grid-view-item js-greeting" style="flex-wrap: wrap; word-wrap: wrap;">
+
+    </div>
+
+    <div id="form" class="grid-view-item">
+      <div><b>Where shall we send the code? </b></div>
+      <br>
+      {% for info in quick_actions.contact_info %}
+        <span style="{{ 'margin-right: 6px;' if '.com' in info else '' }}">{{ '<b>Email:</b>' if '.com' in info else '<b>Phone:</b>' }}</span>
+        <input id="{{info}}" type="radio" value="{{loop.index0}}" type="radio" name="contact_info_index">
+        <label for="{{info}}" style="display: inline-block;">&nbsp; {{ info }}</label>
+        <br>
+      {% endfor %}
+    </div>
+
+    <div class="grid-view-item">
+      <button id="button" class="btn" onclick="sendVerificationCode(event)">Send me the code</button>
+      <br>
+      <br>
+
+      <div id="refresh" style="visibility: hidden;">
+        <a href="#" onclick="history.go(0)">Not receiving the code? Try again.</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>{% include '_scripts.js' %}</script>
+
+<script>
+
+  const quickActions = {{ quick_actions | json }};
+  const { action_url} = quickActions;
+
+  (function() {
+
+    let greetingtext;
+
+    if (  action_url.includes("reactivate") ||
+          action_url.includes("skip_next")  ||
+          action_url.includes("ship_now")
+       ) {
+
+      let regex = /"([^"]*)"/g;
+      let regex2 = /"([^"]*)"/g;
+      // Get the product name
+      const productName = regex.exec(quickActions.greeting)[0].replace(/['"]+/g, '');
+      const productNameWithQuotes = regex2.exec(quickActions.greeting)[0];
+      // Get freeting text
+      const text = quickActions.greeting.split('<br>')[1];
+      greetingtext = text.replace(productNameWithQuotes, `<b>${productName} </b>`);
+    } else if (action_url.includes("upgrade")) {
+      let regex3 = /"([^"]*)"/g;
+      const products = regex3.exec(quickActions.greeting);
+      greetingtext =
+        `Replace your current subscription: <b>${products[1]}</b> with the new subscription: <b>${products[1]}</b>.`;
+    } else if (action_url.includes("add_onetime")) {
+      let regex4 = /"([^"]*)"/g;
+      const products = regex4.exec(quickActions.greeting);
+      greetingtext =
+        `Add the one time purchase item <b>${products[1]}</b> to your subscription for <b>${products[1]}</b>.`;
+    } else if (action_url.includes("apply_discount")) {
+      let regex5 = /"([^"]*)"/g;
+      const products = regex5.exec(quickActions.greeting);
+      greetingtext =
+        `Apply discount named <b>${products[1]}</b> to your subscription for <b>${products[1]}</b>.`;
+    } else if (action_url.includes("reactivate_and_apply_discount")) {
+      let regex6 = /"([^"]*)"/g;
+
+      const products = regex6.exec(quickActions.greeting);
+      greetingtext =
+        `Reactivate your subscription <b>${products[1]}</b> and apply the discount named <b>${products[1]}</b>.`;
+    } else if (action_url.includes("reactivate_and_add_onetime")) {
+      let regex7 = /"([^"]*)"/g;
+      const products = regex7.exec(quickActions.greeting);
+      greetingtext =
+        `Reactivate your subscription <b>${products[1]}</b> and add one time purchase item <b>${products[1]}</b>.`;
+    } else if (action_url.includes("view_portal_page")) {
+      greetingtext = "";
+      document.querySelector("#confirm-changes").innerHTML = "VERIFY BELOW TO CONTINUE";
+    } else if (action_url.includes("new_subscription")) {
+      greetingtext = "Start a new subscription";
+    }
+
+    const output = `
+      ${greetingtext} ${action_url.includes("view_portal_page") ? "" : "." }
+      <div class="js-msg-text">We will send a <b> 6-digit code</b>. Enter it on the next page. </div>
+    `;
+    // Render output
+    document.querySelector('.js-greeting').innerHTML = output;
+  })();
+
+'use strict';
+
+  const actionUrl = '{{ quick_actions.action_url }}';
+  let contactInfoIndex;
+
+  // STEP 2
+  async function sendVerificationCode(event) {
+    event.preventDefault();
+    // get selected contact info
+    const checked = document.querySelector('input[name="contact_info_index"]:checked');
+
+    if (checked === null) {
+      ReCharge.Toast.addToast('error', 'Contact method is required');
+      return;
+    }
+
+    contactInfoIndex = parseInt(checked.value);
+    const response = await fetch("{{ quick_actions_send_verification_code_url }}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        'contact_info_index': contactInfoIndex
+      })
+    });
+
+    if (response.ok) {
+      // display verification code input
+      document.querySelector('.js-msg-text').style.display = 'none';
+      event.target.innerHTML = 'Verify';
+      document.getElementById('form').innerHTML = `
+      <div class="grid-view-item"><b> Enter the code here </b> </div>
+      <label>
+        <input autocomplete="off" name="verification_code" required maxlength="6" placeholder="6-digit code">
+      </label>`;
+      const input = document.getElementsByName('verification_code')[0];
+      input.focus();
+      document.getElementById('button').onclick = checkVerficationCode;
+      // show "Not receiving the code?" link
+      document.getElementById('refresh').style.visibility = 'visible';
+    } else {
+      const error = await response.json();
+      ReCharge.Toast.addToast('error', error['errors'][0]);
+    }
+  }
+
+  // STEP 3
+  async function checkVerficationCode(event) {
+    // get verification code
+    const verificationCode = document.getElementsByName('verification_code')[0].value;
+    const response = await fetch("{{ quick_actions_check_verification_code_url }}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        'verification_code': verificationCode,
+        'contact_info_index': contactInfoIndex
+      })
+    });
+
+    // execute action if verification checks out, else error alert
+    if (response.ok) {
+      const data = await response.json();
+      window.location.replace(actionUrl + '&token=' + data['token']);
+    } else {
+      const error = await response.json();
+      console.log('verification error', error);
+      ReCharge.Toast.addToast('error', error['errors'][0]);
+
+      document.querySelector(".js-greeting").innerHTML = `
+      <div>Sorry, there was a problem with this action.</div>
+      `;
+      // Hide form
+      document.getElementById("form").innerHTML = "";
+
+      // Remove event handler from the button
+      event.target.removeEventListener("click", sendVerificationCode, true);
+      event.target.removeEventListener("click", checkVerficationCode, true);
+      document.querySelector("#refresh").style.visibility = "hidden";
+
+      // Modify button so it would redirect to subscriptions route
+      let param = window.location.href.includes('preview_theme') ? '&' : '?';
+      event.target.innerHTML = `<a href="/tools/recurring/login" style="color: white;"> View subscriptions </a>`;
+    }
+  }
+
+</script>

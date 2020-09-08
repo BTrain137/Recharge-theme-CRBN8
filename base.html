@@ -1,0 +1,45 @@
+<script>
+  function getToken() {
+    var value = new RegExp("[?&]token=([^&#]*)", "i").exec(window.location.href);
+    return value ? value[1] : '';
+  }
+
+  window.customerToken = getToken();
+
+  if (!window.customerToken) {
+    window.location.href = '/tools/recurring/login';
+  }
+</script>
+<style>{% include '_styles.css' %}</style>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<div id="ReCharge" class="page-width">
+  <div class="section-header section-header--large">
+    <h2>My subscriptions</h2>
+  </div>
+
+  <div class="grid">
+    <div class="grid__item medium-up--one-quarter">
+      <h3>My account</h3>
+      <h4>{{ customer.first_name }} {{ customer.last_name }}</h4>
+      <p>
+        <a href="{{ schedule_url }}">Schedule</a><br>
+        <a href="{{ subscription_list_url }}">Subscriptions</a><br>
+        <a href="{{ order_list_url }}">Order history</a><br>
+        <a href="{{ address_list_url }}">Addresses</a><br>
+        <a href="{{ customer_url }}">Account</a><br>
+        <a href="{{ payment_source_list_url }}">Billing</a><br>
+      </p>
+      <p>
+        <a href="/account">Back to My Account</a>
+      </p>
+    </div>
+    <div class="grid__item medium-up--three-quarters">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<script>{% include '_scripts.js' %}</script>
+
+{% block footer %}{% endblock %}

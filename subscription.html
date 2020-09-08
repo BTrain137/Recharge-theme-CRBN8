@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <div class="grid">
+    {% set product = subscription.product %}
+
+    <div class="grid__item medium-up--one-third small--text-center">
+      {% if product and product.images and product.images['medium'] %}
+        <img src="{{ product.images['medium'] }}">
+      {% else %}
+        <img src="//rechargestatic-bootstrapheroes.netdna-ssl.com/static/images/no-image.png" width="100">
+      {% endif %}
+    </div>
+
+    <div class="grid__item medium-up--two-thirds small--text-center">
+      <h3>
+        {{ subscription.product_title }}
+        {{ '-' if subscription.variant_title else ''}}
+        {{ subscription.variant_title }}
+      </h3>
+      <h3>{{ subscription.price | money }}</h3>
+    </div>
+  </div>
+
+  <br>
+
+  <div class="grid">
+    <div class="grid__item medium-up--two-thirds">
+
+      <fieldset>
+        <h4>Next recurring order</h4>
+        <p>
+          {% if subscription.next_charge_scheduled_at %}
+            {{ subscription.next_charge_scheduled_at | date('%m/%d/%Y') }}
+            <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_date'); return false;">Edit</a>
+          {% else %}
+            Error
+          {% endif %}
+        </p>
+        <form method="post" action="{{ subscription.id | subscription_set_next_charge_date_url }}" id="ReChargeForm_date" style="display: none;">
+          <p>
+              <label for="date">Date:</label>
+              <input type="date" name="date" id="date" value="{{ subscription.next_charge_scheduled_at | date('%Y-%m-%d') }}">
+          </p>
+          <p>
+            <button type="submit" class="btn">Update order date</button>
+            <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_date'); return false;" class="btn btn--secondary">Cancel</a>
+          </p>
+        </form>
+      </fieldset>
+
+      <fieldset>
+        <h4>Delivery schedule</h4>
+        <p>
+          Every {{ subscription.order_interval_frequency }} {{ subscription.order_interval_unit }}
+          <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_schedule'); return false;">Edit</a>
+        </p>
+        <form method="post" action="{{ subscription.id | subscription_url }}" id="ReChargeForm_schedule" style="display: none;">
+          <p>
+            <label for="charge_interval_frequency">Schedule:</label>
+            {% if product.subscription_defaults %}
+              <select name="charge_interval_frequency" id="charge_interval_frequency" onchange="document.querySelector('[name=order_interval_frequency]').value=this.value">
+                {% for frequency in product.subscription_defaults.order_interval_frequency_options %}
+                  <option value="{{ frequency }}" {% if frequency == subscription.order_interval_frequency %}selected{% endif %}>{{ frequency }} {{ subscription.order_interval_unit | capitalize + 's' }}</option>
+                {% endfor %}
+              </select>
+            {% else %}
+              {{ subscription.order_interval_frequency }} {{ subscription.order_interval_unit }}
+              <input type="hidden" name="charge_interval_frequency" id="charge_interval_frequency" value="{{ subscription.order_interval_frequency }}">
+            {% endif %}
+            <input type="hidden" name="order_interval_unit" value="{{ subscription.order_interval_unit }}">
+            <input type="hidden" name="order_interval_frequency" value="{{ subscription.order_interval_frequency }}">
+          </p>
+          <p>
+            <button type="submit" class="btn">Update schedule</button>
+            <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_schedule'); return false;" class="btn btn--secondary">Cancel</a>
+          </p>
+        </form>
+      </fieldset>
+
+      <fieldset>
+        <h4>Change quantity</h4>
+        <p>
+          {{ subscription.quantity }}
+          <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_quantity'); return false;">Edit</a>
+        </p>
+        <form method="post" action="{{ subscription.id | subscription_url }}" id="ReChargeForm_quantity" style="display: none;">
+          <p>
+            <label for="quantity">Quantity:</label>
+            <input type="number" name="quantity" id="quantity" value="{{ subscription.quantity }}">
+          </p>
+          <p>
+            <button type="submit" class="btn">Update quantity</button>
+            <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_quantity'); return false;" class="btn btn--secondary">Cancel</a>
+          </p>
+        </form>
+      </fieldset>
+
+      {% if product and "shopify_details" in product and "variants" in product.shopify_details %}
+      <fieldset>
+        <h4>Change variant</h4>
+        <p>
+          {{ subscription.variant_title }}
+          <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_variant'); return false;">Edit</a>
+        </p>
+        <form method="post" action="{{ subscription.id | subscription_url }}" id="ReChargeForm_variant" style="display: none;">
+          <p>
+            <label for="shopify_variant_id">Shopify variant ID:</label>
+            <select name="shopify_variant_id" id="shopify_variant_id">
+              {% for variant in product.shopify_details.variants %}
+              <option value="{{ variant.shopify_id }}"
+                {% if variant.shopify_id == subscription.shopify_variant_id %}selected{% endif %}>
+                {{ variant.title }}</option>
+              {% endfor %}
+            </select>
+          </p>
+          <p>
+            <button type="submit" class="btn">Update variant</button>
+            <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_variant'); return false;" class="btn btn--secondary">Cancel</a>
+          </p>
+        </form>
+      </fieldset>
+      {% endif %}
+
+      <fieldset>
+        {% if subscription.status == 'ACTIVE' %}
+          {% if subscription.next_charge_scheduled_at %}
+            {% if subscription.order_interval_frequency == subscription.charge_interval_frequency %}
+              <a href="#" onclick="ReCharge.Subscription.skip({{ subscription.id }}); return false;">Skip shipment</a><br>
+            {% endif %}
+          {% else %}
+            Charge error, Skip not available<br>
+          {% endif %}
+          {% if subscription.is_swappable %}
+            <a href="{{ subscription.id | subscription_swap_search_url }}">Swap product</a><br>
+          {% endif %}
+          <a href="{{ subscription.id | subscription_cancel_url }}">Cancel subscription</a><br>
+        {% else %}
+          <a href="#" onclick="ReCharge.Subscription.activate({{ subscription.id }}); return false;">Re-activate subscription</a><br>
+        {% endif %}
+      </fieldset>
+    </div>
+    <div class="grid__item medium-up--one-third">
+      <fieldset>
+        <h4>Ships to</h4>
+        <p>
+          {{ subscription.address.address1 }} {{ subscription.address.address2 }}<br>
+          {{ subscription.address.city }} {{ subscription.address.province }} {{ subscription.address.zip }}<br>
+        </p>
+        <a href="{{ subscription.address.id | address_url }}">Edit</a>
+      </fieldset>
+      <br>
+      <fieldset>
+        {% set payment_source = payment_sources[0] %}
+        {% if payment_source.payment_type in ['credit', 'debit'] %}
+          <h4>Card on file</h4>
+          <p>
+            {% if payment_source.status == 'failed' %}
+              Card was removed or expired.
+            {% else %}
+              {% if not payment_source.card_brand %}
+                Card details unavailable
+              {% else %}
+                {{ payment_source.card_brand | capitalize }} ending in {{ payment_source.card_last4 }}
+              {% endif %}
+            {% endif %}
+          </p>
+          <a href="{{ payment_source_url }}">Edit</a>
+        {% elif payment_source.payment_type == 'paypal' %}
+          <h4>Paypal account</h4>
+          <p>Sign in to <a href="https://www.paypal.com/signin" target="_blank">PayPal</a>.</p>
+    {% elif payment_source.payment_type == 'apple_pay' %}
+          <h4>Linked Apple Pay</h4>
+          <p>Learn more about <a href="https://support.apple.com/en-us/HT205583" target="_blank">Apple Pay</a>.</p>
+        {% endif %}
+      </fieldset>
+    </div>
+  </div>
+{% endblock %}

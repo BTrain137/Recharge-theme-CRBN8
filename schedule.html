@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h3>Order schedule</h3>
+
+  <p>
+    Scheduled dates are when your order will be placed. Future orders will be added to your schedule as the date approaches.
+  </p>
+
+  {% if not schedule %}
+    <p>No deliveries have been scheduled for your account.</p>
+  {% else %}
+
+    {% set next_delivery = schedule | first %}
+
+    <h4>Your next order:</h4>
+
+    <div class="grid">
+      <div class="grid__item one-whole">
+        <h5>
+          {{ next_delivery.date | date("%B %d, %Y") }}
+        </h5>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-wrapper">
+        <table class="full">
+          <thead>
+            <tr>
+              <th>Products</th>
+              <th>Order type</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in next_delivery.orders %}
+              {% set subscription = order.subscription %}
+              {% set charge = order.charge %}
+              <tr>
+                <td>
+                  {% if order.is_skipped %}<strike>{% endif %}
+                  {{ subscription.quantity }} x {{ subscription.product_title }}<br>
+                  {% if subscription.variant_title %}
+                    <small>{{ subscription.variant_title }}</small>
+                  {% endif %}
+                  {% if order.is_skipped %}</strike>{% endif %}
+                </td>
+                <td>
+                  {% if subscription.status == 'ONETIME' %}
+                    One-time
+                  {% elif not order.is_skippable %}
+                    Pre-paid
+                  {% else %}
+                    Recurring
+                    {% if order.is_skipped %}
+                      (skipped)
+                    {% endif %}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if subscription.status == 'ONETIME' %}
+                    <a href="{{ subscription.id | onetime_url }}">Edit</a>
+                  {% else %}
+                    <a href="{{ subscription.id | subscription_url }}">Edit</a><br>
+                    {% if order.is_skipped %}
+                      <a href="#" onclick="ReCharge.Subscription.unskip({{ subscription.id }}, {{ charge.id }}); return false;">Unskip</a>
+                    {% elif order.is_skippable %}
+                      {% if charge %}
+                        <a href="#" onclick="ReCharge.Subscription.skip({{ subscription.id }}, {{ charge.id }}, '{{ next_delivery.date }}'); return false;">Skip</a>
+                      {% else %}
+                        <a href="#" onclick="ReCharge.Subscription.skip({{ subscription.id }}, null, '{{ next_delivery.date }}'); return false;">Skip</a>
+                      {% endif %}
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <hr>
+
+    <h4>Scheduled orders:</h4>
+
+    {# Skip the first delivery display as it's shown above. #}
+    {% for delivery in schedule[1:] %}
+        <div class="grid">
+            <div class="grid__item one-half">
+            <h5>
+                {{ delivery.date | date("%B %d, %Y") }}
+            </h5>
+            </div>
+            <div class="grid__item one-half text-right">
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <div class="table-wrapper">
+            <table class="full">
+                <tbody>
+                {% for grouper, list in delivery.orders | groupby('subscription.address_id') %}
+                    <tr>
+                    <td colspan="2">
+                        <strong>
+                        {% for address in addresses | selectattr('id', 'equalto', grouper) %}
+                            Deliver to {{ address.address1 }}
+                        {% endfor %}
+                        </strong>
+                    </td>
+                    </tr>
+                    {% for order in list %}
+                    {% set subscription = order.subscription %}
+                    {% set charge = order.charge %}
+                    <tr>
+                        <td>
+                        {% if order.is_skipped %}<strike>{% endif %}
+
+                        {{ subscription.quantity }} x {{ subscription.product_title }}
+                        {% if subscription.variant_title %}
+                            <small>({{ subscription.variant_title }})</small>
+                        {% endif %}
+
+                        {% if order.is_skipped %}</strike>{% endif %}
+
+                        {% if subscription.status == 'ONETIME' %}
+                            - <a href="{{ subscription.id | onetime_url }}">Edit</a>
+                        {% else %}
+                            - <a href="{{ subscription.id | subscription_url }}">Edit</a>
+                        {% endif %}
+                        <span class="pull-right">
+                            {% if subscription.status == 'ONETIME' %}
+                            One-time
+                            {% elif not order.is_skippable %}
+                            Pre-paid
+                            {% endif %}
+                        </span>
+                        </td>
+                        <td>
+                        {% if order.is_skipped %}
+                            <a href="#" onclick="ReCharge.Subscription.unskip({{ subscription.id }}, {{ charge.id }}); return false;">Unskip</a>
+                        {% elif order.is_skippable %}
+                            {% if charge %}
+                            <a href="#" onclick="ReCharge.Subscription.skip({{ subscription.id }}, {{ charge.id }}, '{{ delivery.date }}'); return false;">Skip</a>
+                            {% else %}
+                            <a href="#" onclick="ReCharge.Subscription.skip({{ subscription.id }}, null, '{{ delivery.date }}'); return false;">Skip</a>
+                            {% endif %}
+                        {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    {% endfor %}
+
+  {% endif %}
+
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h3>Addresses</h3>
+
+  {% if not addresses %}
+    <p>No addresses found</p>
+  {% else %}
+    {% for address in addresses %}
+      <address>
+        <p>
+          <strong>{{ address.first_name }} {{ address.last_name }}</strong><br>
+          {% if address.company %}{{ address.company }}<br>{% endif %}
+          {{ address.address1 }} {{ address.address2 }}<br>
+          {{ address.zip }} {{ address.city }} {{ address.province }}<br>
+          {{ address.country }}<br>
+          {{ address.phone }}
+        </p>
+        <a href="{{ address.id | address_url }}" class="btn">Edit address</a>
+      </address>
+      <br>
+    {% endfor %}
+  {% endif %}
+
+  <p>
+    <a href="{{ address_new_url }}" class="btn btn--secondary">Add address</a>
+  </p>
+{% endblock %}

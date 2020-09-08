@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <h3>Subscription items</h3>
+
+  {% set cancelled_subscriptions = [] %}
+  {% for address in addresses | sort(attribute="id") %}
+    {% if address.subscriptions | list | length or address.onetimes | list | length %}
+      <h4>{{ address.first_name }} {{ address.last_name }}</h4>
+      <p>
+        <strong>Ships to:</strong> {{ address.address1 }} {{ address.address2 }} {{ address.city }} {{ address.province }} {{ address.zip }}
+        <a href="{{ address.id | address_url }}">Edit</a>
+      </p>
+    {% endif %}
+
+    {% if address.subscriptions | list | length %}
+      {% if address.subscriptions | selectattr("status", "equalto", "CANCELLED") | list | length %}
+        {% if cancelled_subscriptions.append(address) %}{% endif %}
+      {% endif %}
+
+      {% if address.subscriptions | rejectattr("status", "equalto", "CANCELLED") | list | length %}
+        <div class="table-wrap">
+          <div class="table-wrapper">
+            <table class="full">
+              <thead>
+                <tr>
+                  <th>Subscriptions</th>
+                  <th>Quantity</th>
+                  <th>Amount</th>
+                  <th>Frequency</th>
+                  <th>Next order</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for subscription in address.subscriptions | rejectattr("status", "equalto", "CANCELLED") %}
+                  <tr>
+                    <td>
+                      {% if subscription.product and subscription.product.images and subscription.product.images.small %}
+                        <img src="{{ subscription.product.images['small'] }}"><br>
+                      {% else %}
+                        <img src="//rechargestatic-bootstrapheroes.netdna-ssl.com/static/images/no-image.png" width="100"><br>
+                      {% endif %}
+                      {{ subscription.product_title }} {% if subscription.variant_title %}({{ subscription.variant_title }}) {% endif %}<br>
+                    </td>
+                    <td>
+                      {{ subscription.quantity }}
+                    </td>
+                    <td>
+                      {{ subscription.price | money }}
+                    </td>
+                    <td>
+                      {{ subscription.order_interval_frequency }}
+                      {{ subscription.order_interval_unit | append('s') | capitalize }}
+                    </td>
+                    <td>
+                      {% if not subscription.next_charge_scheduled_at %}
+                        Error
+                      {% else %}
+                        {{ subscription.next_charge_scheduled_at | date('%B %-d, %Y') }}
+                      {% endif %}
+                    </td>
+                    <td>
+                      <a href="{{ subscription.id | subscription_url }}">Edit</a><br>
+                      {% if subscription.is_swappable %}
+                        <a href="{{ subscription.id | subscription_swap_search_url }}">Swap</a><br>
+                      {% endif %}
+                      <a href="{{ subscription.id | subscription_cancel_url }}">Cancel</a><br>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+
+    {% if address.onetimes | list | length %}
+      <div class="table-wrap">
+        <div class="table-wrapper">
+          <table class="full">
+            <thead>
+              <tr>
+                <th>One-times</th>
+                <th>Quantity</th>
+                <th>Amount</th>
+                <th>Frequency</th>
+                <th>Next order</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for onetime in address.onetimes %}
+                <tr>
+                  <td>
+                    {% if onetime.product and onetime.product.shopify_details.images %}
+                        <img src="{{ onetime.product.shopify_details.images[0].src | img_url }}"><br>
+                    {% else %}
+                      <img src="//rechargestatic-bootstrapheroes.netdna-ssl.com/static/images/no-image.png" width="100"><br>
+                    {% endif %}
+                    {{ onetime.product_title }}{% if onetime.variant_title %} ({{ onetime.variant_title }}){% endif %}<br>
+                  </td>
+                  <td>
+                    {{ onetime.quantity }}
+                  </td>
+                  <td>
+                    {{ onetime.price | money }}
+                  </td>
+                  <td>
+                    One-time
+                  </td>
+                  <td>
+                    {{ onetime.next_charge_scheduled_at | date('%B %-d, %Y') }}
+                  </td>
+                  <td>
+                    <a href="{{ onetime.id | onetime_url }}">Edit</a><br>
+                    <a href="#" onclick="if (window.confirm('Are you sure you want to cancel this product?')) { ReCharge.Onetime.cancel({{ onetime.id }}); }; return false;">Cancel</a><br>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if address.subscriptions | list | length or address.onetimes | list | length %}
+      {% if address.discount_id %}
+        <p>
+          Applied discount: {{ address.discount.code }}<br>
+          <a href="#" onclick="ReCharge.Discount.remove({{ address.id }}, {{ address.discount_id }});return false;" class="btn">Remove discount</a>
+        </p>
+      {% else %}
+        <p>
+          <a href="#" onclick="ReCharge.Helpers.toggle('ReChargeForm_applyDiscount_{{ address.id }}');return false;" class="btn">Add discount</a>
+        </p>
+        <form method="post" action="{{ address.id | discount_apply_url }}" id="ReChargeForm_applyDiscount_{{ address.id }}" style="display: none;">
+          <input type="hidden" name="redirect_url" value="{{ subscription_list_url }}">
+          <fieldset>
+            <label for="discount_code">Discount code</label>
+            <input type="text" name="discount_code" id="discount_code" placeholder="Enter discount code">
+            <button type="submit" class="btn">Apply</button>
+          </fieldset>
+        </form>
+      {% endif %}
+      <hr>
+    {% endif %}
+  {% endfor %}
+
+  {% if cancelled_subscriptions %}
+  <h3>Cancelled subscriptions</h3>
+    {% for address in cancelled_subscriptions | sort(attribute="id") %}
+      {% if address.subscriptions | selectattr("status", "equalto", "CANCELLED") | list | length %}
+        <h4>{{ address.first_name }} {{ address.last_name }}</h4>
+        <p>
+          {{ address.address1 }} {{ address.address2 }} {{ address.city }} {{ address.province }} {{ address.zip }}
+          <a href="{{ address.id | address_url }}">Edit</a>
+        </p>
+
+        <div class="table-wrap">
+          <div class="table-wrapper">
+            <table class="full">
+              <thead>
+                <tr>
+                  <th>Subscriptions</th>
+                  <th>Quantity</th>
+                  <th>Amount</th>
+                  <th>Frequency</th>
+                  <th>Next order</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for subscription in address.subscriptions | selectattr("status", "equalto", "CANCELLED") %}
+                <tr>
+                  <td>
+                    {% if subscription.product and subscription.product.images and subscription.product.images.small %}
+                      <img src="{{ subscription.product.images['small'] }}"><br>
+                    {% else %}
+                      <img src="//rechargestatic-bootstrapheroes.netdna-ssl.com/static/images/no-image.png" width="100"><br>
+                    {% endif %}
+
+                    {{ subscription.product_title }}
+                    {% if subscription.variant_title %} ({{ subscription.variant_title }}){% endif %}<br>
+                  </td>
+                  <td>
+                    {{ subscription.quantity }}
+                  </td>
+                  <td>
+                    {{ subscription.price | money }}
+                  </td>
+                  <td>
+                    {{ subscription.order_interval_frequency }}
+                    {{ subscription.order_interval_unit | append('s') | capitalize }}
+                  </td>
+                  <td>
+                    Cancelled
+                  </td>
+                  <td>
+                    <a href="#" onclick="ReCharge.Subscription.activate({{ subscription.id }}); return false;">Re-activate</a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  <p>
+    <a href="{{ product_search_url }}" class="btn">Add product</a>
+    <a href="{{ address_new_url }}" class="btn btn--secondary">Add address</a>
+  </p>
+  <script>
+    window.addresses = {{ addresses | json }};
+  </script>
+{% endblock %}
